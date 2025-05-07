@@ -1,0 +1,38 @@
+server:
+  port: ${PORT:8080}
+
+spring:
+  application:
+    name: talkburst
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+
+talkburst:
+  # Unique id of this node; used to ignore our own pub/sub echoes where needed.
+  instance-id: ${TALKBURST_INSTANCE_ID:${random.uuid}}
+  floor:
+    # Initial grant length; clients renew while still talking.
+    grant-ttl: ${TALKBURST_FLOOR_GRANT_TTL:PT10S}
+    # Hard cap on a single talk burst regardless of renewals.
+    max-burst: ${TALKBURST_FLOOR_MAX_BURST:PT30S}
+    # Maximum number of queued floor requests per session.
+    max-queue: ${TALKBURST_FLOOR_MAX_QUEUE:16}
+    # How often the expiry sweeper checks for lapsed grants.
+    sweep-interval: ${TALKBURST_FLOOR_SWEEP_INTERVAL:PT0.5S}
+  session:
+    idle-ttl: ${TALKBURST_SESSION_IDLE_TTL:PT2H}
+    max-participants: ${TALKBURST_SESSION_MAX_PARTICIPANTS:64}
+  ws:
+    allowed-origins: ${TALKBURST_ALLOWED_ORIGINS:*}
+    # Max binary frame size (bytes) accepted for an audio chunk.
+    max-audio-frame-bytes: 16384
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
