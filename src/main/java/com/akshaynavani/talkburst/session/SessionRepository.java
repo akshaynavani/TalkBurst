@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Repository;
@@ -33,7 +34,8 @@ public class SessionRepository {
     private final StringRedisTemplate redis;
     private final RedisScript<Long> joinScript;
 
-    public SessionRepository(StringRedisTemplate redis, RedisScript<Long> joinSessionScript) {
+    public SessionRepository(StringRedisTemplate redis,
+                             @Qualifier("joinSessionScript") RedisScript<Long> joinSessionScript) {
         this.redis = redis;
         this.joinScript = joinSessionScript;
     }
