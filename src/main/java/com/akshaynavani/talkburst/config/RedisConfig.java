@@ -26,23 +26,27 @@ public class RedisConfig {
     }
 
     @Bean
-    public RedisScript<String> floorAcquireScript() {
-        return script("lua/floor_acquire.lua", String.class);
+    @SuppressWarnings("rawtypes")
+    public RedisScript<List> floorAcquireScript() {
+        return script("lua/floor_acquire.lua", List.class);
     }
 
     @Bean
-    public RedisScript<Long> floorReleaseScript() {
-        return script("lua/floor_release.lua", Long.class);
+    @SuppressWarnings("rawtypes")
+    public RedisScript<List> floorReleaseScript() {
+        return script("lua/floor_release.lua", List.class);
     }
 
     @Bean
-    public RedisScript<Long> floorRenewScript() {
-        return script("lua/floor_renew.lua", Long.class);
+    @SuppressWarnings("rawtypes")
+    public RedisScript<List> floorRenewScript() {
+        return script("lua/floor_renew.lua", List.class);
     }
 
     @Bean
-    public RedisScript<List> floorPromoteScript() {
-        return script("lua/floor_promote.lua", List.class);
+    @SuppressWarnings("rawtypes")
+    public RedisScript<List> floorSweepScript() {
+        return script("lua/floor_sweep.lua", List.class);
     }
 
     private static <T> RedisScript<T> script(String path, Class<T> type) {
