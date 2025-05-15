@@ -15,7 +15,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.akshaynavani.talkburst.api.dto.CreateSessionRequest;
+import com.akshaynavani.talkburst.api.dto.FloorStateResponse;
 import com.akshaynavani.talkburst.api.dto.SessionResponse;
+import com.akshaynavani.talkburst.floor.FloorControlService;
 import com.akshaynavani.talkburst.session.SessionService;
 
 @RestController
@@ -23,9 +25,11 @@ import com.akshaynavani.talkburst.session.SessionService;
 public class SessionController {
 
     private final SessionService sessions;
+    private final FloorControlService floor;
 
-    public SessionController(SessionService sessions) {
+    public SessionController(SessionService sessions, FloorControlService floor) {
         this.sessions = sessions;
+        this.floor = floor;
     }
 
     @PostMapping
@@ -43,6 +47,12 @@ public class SessionController {
     @GetMapping("/{id}")
     public SessionResponse get(@PathVariable String id) {
         return SessionResponse.of(sessions.get(id), sessions.members(id));
+    }
+
+    @GetMapping("/{id}/floor")
+    public FloorStateResponse floor(@PathVariable String id) {
+        sessions.get(id);
+        return FloorStateResponse.of(floor.state(id));
     }
 
     @DeleteMapping("/{id}")
