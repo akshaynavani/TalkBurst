@@ -27,6 +27,7 @@ public record TalkBurstProperties(
 
     public record Ws(
             @DefaultValue("*") List<String> allowedOrigins,
-            @DefaultValue("16384") int maxAudioFrameBytes) {
+            @DefaultValue("16384") int maxAudioFrameBytes,
+            @DefaultValue("") String privilegedRoleKey) {
     }
 }

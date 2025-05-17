@@ -30,6 +30,8 @@ talkburst:
     allowed-origins: ${TALKBURST_ALLOWED_ORIGINS:*}
     # Max binary frame size (bytes) accepted for an audio chunk.
     max-audio-frame-bytes: 16384
+    # If set, DISPATCHER/SUPERVISOR connections must present ?key=<value>.
+    privileged-role-key: ${TALKBURST_PRIVILEGED_ROLE_KEY:}
 
 management:
   endpoints:
