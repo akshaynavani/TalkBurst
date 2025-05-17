@@ -19,6 +19,7 @@ public class PttConnection {
     private final String sessionId;
     private final Participant participant;
     private volatile FloorGrant heldGrant;
+    private volatile long lastAudioRejectMs;
 
     public PttConnection(WebSocketSession socket, String sessionId, Participant participant) {
         this.socket = socket;
@@ -65,6 +66,15 @@ public class PttConnection {
     public boolean holdsFloor(Instant now) {
         FloorGrant g = heldGrant;
         return g != null && g.expiresAt().isAfter(now);
+    }
+
+    /** Rate-limits "you don't hold the floor" errors for stray audio to one per second. */
+    public boolean shouldNotifyAudioReject(long nowMs) {
+        if (nowMs - lastAudioRejectMs < 1_000) {
+            return false;
+        }
+        lastAudioRejectMs = nowMs;
+        return true;
     }
 
     public boolean isOpen() {

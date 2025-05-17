@@ -12,6 +12,7 @@ public enum ServerMessageType {
     FLOOR_RENEWED,
     FLOOR_REVOKED,
     FLOOR_EXPIRED,
+    FLOOR_QUEUE_UPDATED,
     FLOOR_STATE,
     PONG,
     ERROR
