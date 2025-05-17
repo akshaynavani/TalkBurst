@@ -7,7 +7,6 @@ public final class RedisKeys {
     public static final String SESSION_INDEX = PREFIX + "sessions";
     /** Sessions whose floor grant needs checking by the expiry sweeper. */
     public static final String ACTIVE_FLOORS = PREFIX + "floors:active";
-    public static final String EVENTS_PATTERN = PREFIX + "events:*";
 
     private RedisKeys() {
     }
@@ -32,7 +31,11 @@ public final class RedisKeys {
         return PREFIX + "events:" + sessionId;
     }
 
+    public static String audio(String sessionId) {
+        return PREFIX + "audio:" + sessionId;
+    }
+
     public static String sessionIdFromChannel(String channel) {
-        return channel.substring((PREFIX + "events:").length());
+        return channel.substring(channel.indexOf(':', PREFIX.length()) + 1);
     }
 }
