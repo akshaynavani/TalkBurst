@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TalkBurst Demo</title>
+  <style>
+    :root { --bg:#f6f7f9; --fg:#1d2330; --muted:#6b7280; --accent:#2563eb; --live:#dc2626; --card:#fff; --line:#e5e7eb; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#111418; --fg:#e6e8eb; --muted:#9aa3ad; --card:#1a1f26; --line:#2a313a; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font:15px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+    main { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+    .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px; margin-bottom:16px; }
+    label { display:block; font-size:13px; color:var(--muted); margin-top:8px; }
+    input, select, button { font:inherit; padding:8px 10px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--fg); }
+    input, select { width:100%; }
+    .row { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+    button { cursor:pointer; background:var(--accent); color:#fff; border:none; margin-top:12px; }
+    #ptt { width:100%; padding:28px; font-size:20px; user-select:none; touch-action:none; }
+    #ptt.live { background:var(--live); }
+    #ptt:disabled { opacity:.5; cursor:not-allowed; }
+    #floor { font-weight:600; }
+    #log { font: 12px/1.4 ui-monospace, monospace; height: 220px; overflow:auto; white-space: pre-wrap; color:var(--muted); }
+    ul { padding-left: 18px; margin: 6px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>TalkBurst</h1>
+  <div class="card">
+    <div class="row">
+      <div><label>Session id</label><input id="session" placeholder="create one below or paste"></div>
+      <div><label>User id</label><input id="user"></div>
+      <div><label>Role</label>
+        <select id="role"><option>MEMBER</option><option>SUPERVISOR</option><option>DISPATCHER</option><option>LISTENER</option></select></div>
+      <div><label>Role key (privileged roles)</label><input id="key" type="password"></div>
+    </div>
+    <button id="create">Create session</button>
+    <button id="connect">Connect</button>
+  </div>
+
+  <div class="card">
+    <div>Floor: <span id="floor">idle</span></div>
+    <div>Queue: <span id="queue">-</span></div>
+    <div>Participants:<ul id="people"></ul></div>
+    <button id="ptt" disabled>Hold to talk (or hold Space)</button>
+  </div>
+
+  <div class="card"><div id="log"></div></div>
+</main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const RATE = 16000;
+  let ws, me, token, audioCtx, micNode, micStream, playHead = 0, renewTimer;
+  const people = new Map();
+  $('user').value = 'user' + Math.floor(Math.random() * 1000);
+
+  const log = (...a) => { $('log').textContent += a.join(' ') + '\n'; $('log').scrollTop = 1e9; };
+  const send = (type, extra = {}) => ws && ws.readyState === 1 && ws.send(JSON.stringify({ type, ...extra }));
+
+  $('create').onclick = async () => {
+    const r = await fetch('/api/sessions', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'demo', createdBy: $('user').value }) });
+    const s = await r.json();
+    $('session').value = s.id;
+    log('created session', s.id);
+  };
+
+  $('connect').onclick = () => {
+    const q = new URLSearchParams({ session: $('session').value, user: $('user').value,
+      role: $('role').value, key: $('key').value });
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    ws = new WebSocket(`${proto}://${location.host}/ws/ptt?${q}`);
+    ws.binaryType = 'arraybuffer';
+    ws.onopen = () => log('connected');
+    ws.onclose = e => { log('closed', e.code, e.reason); $('ptt').disabled = true; };
+    ws.onmessage = e => typeof e.data === 'string' ? onControl(JSON.parse(e.data)) : play(e.data);
+  };
+
+  function renderPeople() {
+    $('people').innerHTML = '';
+    for (const [id, p] of people) {
+      const li = document.createElement('li');
+      li.textContent = `${p.displayName} (${id}) - ${p.role}`;
+      $('people').appendChild(li);
+    }
+  }
+
+  function setFloor(holder, role) {
+    $('floor').textContent = holder ? `${holder} [${role}]` : 'idle';
+  }
+
+  function onControl(m) {
+    log(m.type, JSON.stringify(m.data || {}));
+    const d = m.data || {};
+    switch (m.type) {
+      case 'WELCOME':
+        me = d.self;
+        d.participants.forEach(p => people.set(p.userId, p));
+        renderPeople();
+        setFloor(d.floor.holder, d.floor.role);
+        $('queue').textContent = d.queue.join(', ') || '-';
+        $('ptt').disabled = me.role === 'LISTENER';
+        break;
+      case 'PARTICIPANT_JOINED': people.set(m.userId, { userId: m.userId, ...d }); renderPeople(); break;
+      case 'PARTICIPANT_LEFT': people.delete(m.userId); renderPeople(); break;
+      case 'FLOOR_GRANTED':
+        setFloor(d.holder, d.role);
+        if (d.token) { token = d.token; startTalking(); }
+        break;
+      case 'FLOOR_RELEASED': case 'FLOOR_EXPIRED': case 'FLOOR_REVOKED':
+        setFloor(null);
+        if (d.holder === me.userId) stopTalking();
+        break;
+      case 'FLOOR_QUEUE_UPDATED': $('queue').textContent = d.queue.join(', ') || '-'; break;
+      case 'FLOOR_DENIED': stopTalking(); break;
+    }
+  }
+
+  async function ensureAudio() {
+    if (!audioCtx) audioCtx = new AudioContext();
+    if (audioCtx.state === 'suspended') await audioCtx.resume();
+  }
+
+  async function startTalking() {
+    await ensureAudio();
+    $('ptt').classList.add('live');
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true } });
+    const src = audioCtx.createMediaStreamSource(micStream);
+    micNode = audioCtx.createScriptProcessor(2048, 1, 1);
+    const step = audioCtx.sampleRate / RATE;
+    micNode.onaudioprocess = ev => {
+      const input = ev.inputBuffer.getChannelData(0);
+      const out = new Int16Array(Math.floor(input.length / step));
+      for (let i = 0; i < out.length; i++) {
+        const s = Math.max(-1, Math.min(1, input[Math.floor(i * step)]));
+        out[i] = s * 0x7fff;
+      }
+      if (ws && ws.readyState === 1) ws.send(out.buffer);
+    };
+    src.connect(micNode);
+    micNode.connect(audioCtx.destination);
+    renewTimer = setInterval(() => send('FLOOR_RENEW', { token }), 4000);
+  }
+
+  function stopTalking() {
+    $('ptt').classList.remove('live');
+    clearInterval(renewTimer);
+    if (micNode) { micNode.disconnect(); micNode = null; }
+    if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  }
+
+  async function play(buf) {
+    await ensureAudio();
+    const pcm = new Int16Array(buf);
+    const ab = audioCtx.createBuffer(1, pcm.length, RATE);
+    const ch = ab.getChannelData(0);
+    for (let i = 0; i < pcm.length; i++) ch[i] = pcm[i] / 0x7fff;
+    const node = audioCtx.createBufferSource();
+    node.buffer = ab;
+    node.connect(audioCtx.destination);
+    playHead = Math.max(playHead, audioCtx.currentTime + 0.05);
+    node.start(playHead);
+    playHead += ab.duration;
+  }
+
+  const press = () => { ensureAudio(); send('FLOOR_REQUEST', { requestId: String(Date.now()) }); };
+  const release = () => { stopTalking(); if (token) send('FLOOR_RELEASE', { token }); else send('FLOOR_CANCEL'); token = null; };
+  $('ptt').addEventListener('pointerdown', press);
+  $('ptt').addEventListener('pointerup', release);
+  $('ptt').addEventListener('pointerleave', e => e.buttons && release());
+  document.addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !$('ptt').disabled && e.target.tagName !== 'INPUT') { e.preventDefault(); press(); } });
+  document.addEventListener('keyup', e => { if (e.code === 'Space' && !$('ptt').disabled && e.target.tagName !== 'INPUT') release(); });
+})();
+</script>
+</body>
+</html>
