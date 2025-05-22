@@ -198,7 +198,10 @@ class FloorControlServiceIT extends RedisContainerSupport {
         assertThat(r.status()).isEqualTo("RENEWED");
         assertThat(r.grant().expiresAt()).isBeforeOrEqualTo(g.grantedAt().plusSeconds(2));
 
-        Thread.sleep(900);
+        // Keep renewing like a client that is still talking; the cap is grantedAt + 2s.
+        Thread.sleep(700);
+        assertThat(floor.renew(sid, g.token()).status()).isEqualTo("RENEWED");
+        Thread.sleep(700);
         r = floor.renew(sid, g.token());
         assertThat(r.status()).isEqualTo("RENEWED");
         assertThat(r.grant().expiresAt()).isEqualTo(g.grantedAt().plusSeconds(2));
