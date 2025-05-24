@@ -30,7 +30,7 @@ import com.akshaynavani.talkburst.floor.FloorDecision.Outcome;
 import com.akshaynavani.talkburst.session.SessionService;
 import com.akshaynavani.talkburst.support.RedisContainerSupport;
 
-@SpringBootTest(properties = {
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT, properties = {
         "talkburst.floor.grant-ttl=PT1S",
         "talkburst.floor.max-burst=PT2S",
         "talkburst.floor.max-queue=32",
