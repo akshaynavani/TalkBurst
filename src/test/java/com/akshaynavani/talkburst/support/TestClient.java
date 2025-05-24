@@ -17,6 +17,7 @@ import java.util.function.Predicate;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
 import org.springframework.web.socket.TextMessage;
+import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.handler.AbstractWebSocketHandler;
@@ -44,7 +45,7 @@ public class TestClient extends AbstractWebSocketHandler implements AutoCloseabl
         TestClient c = new TestClient(user);
         URI uri = URI.create("ws://localhost:" + port + "/ws/ptt?session=" + sessionId
                 + "&user=" + user + "&role=" + role);
-        c.session = new StandardWebSocketClient().execute(c, null, uri).get(5, TimeUnit.SECONDS);
+        c.session = new StandardWebSocketClient().execute(c, new WebSocketHttpHeaders(), uri).get(5, TimeUnit.SECONDS);
         return c;
     }
 
